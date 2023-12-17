@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
@@ -26,8 +27,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
     private var imageCapture: ImageCapture? = null
+    private var luminosityListener : (luma: Double) -> Unit = {
+        Log.d(TAG, "luma Listener: avg luminosity: $it")
+    }
 
     private lateinit var cameraExecutor: ExecutorService
+
 
     private val activityResultLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()){permissions ->
@@ -113,13 +118,20 @@ class MainActivity : AppCompatActivity() {
                 .also { it.setSurfaceProvider(binding.viewFinder.surfaceProvider) }
             // ImageCapture use case
             imageCapture = ImageCapture.Builder().build()
+            // ImageAnalyzer use case
+            val imageAnalyzer = ImageAnalysis.Builder()
+                .build()
+                .also {
+                    it.setAnalyzer(cameraExecutor, LuminosityAnalyzer(luminosityListener))
+                }
+
             // select back camera as a default
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
             kotlin.runCatching {
                 // Unbind use cases before rebinding
                 cameraProvider.unbindAll()
                 // bind use cases to camera
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalyzer)
             }.onFailure { Log.e(TAG, "startCamera: Use case binding failed $it ", ) }
 
         },ContextCompat.getMainExecutor(this))
