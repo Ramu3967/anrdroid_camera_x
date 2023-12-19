@@ -1,4 +1,4 @@
-package com.example.applicationcamerax
+package com.example.applicationcamerax.imageanalyzers
 
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy

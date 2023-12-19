@@ -18,6 +18,8 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import com.example.applicationcamerax.databinding.ActivityMainBinding
+import com.example.applicationcamerax.imageanalyzers.TextAnalyzer
+import com.example.applicationcamerax.utils.SmoothedMutableLiveData
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.ExecutorService
@@ -32,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var cameraExecutor: ExecutorService
+    // could be used under a VM
+    private val sourceText = SmoothedMutableLiveData<String>(SMOOTHING_DURATION)
 
 
     private val activityResultLauncher = registerForActivityResult(
@@ -58,9 +62,13 @@ class MainActivity : AppCompatActivity() {
 
         // setting up the listeners
         binding.btnImageCapture.setOnClickListener { takePhoto() }
-        binding.btnVideoCapture.setOnClickListener { captureVideo() }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        sourceText.observe(this){
+            Log.e(TAG, "onCreate: detected Text : $it")
+            binding.tvResult.text = it
+        }
     }
 
     private fun allPermissionsGranted() =
@@ -105,7 +113,6 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun captureVideo() {}
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -120,9 +127,17 @@ class MainActivity : AppCompatActivity() {
             imageCapture = ImageCapture.Builder().build()
             // ImageAnalyzer use case
             val imageAnalyzer = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also {
-                    it.setAnalyzer(cameraExecutor, LuminosityAnalyzer(luminosityListener))
+                    it.setAnalyzer(
+                        cameraExecutor,
+                        TextAnalyzer(
+                            this,
+                            lifecycle,
+                            sourceText
+                        )
+                    )
                 }
 
             // select back camera as a default
@@ -145,7 +160,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object{
-        private const val TAG = "CameraXApplication"
+        private const val TAG = "myxCameraXApplication"
         private const val FILENAME_FORMAT = "yyyy-MM-dd-HH-mm-ss-SSS"
         private val REQUIRED_PERMISSIONS = mutableListOf(
             Manifest.permission.CAMERA,
@@ -154,5 +169,8 @@ class MainActivity : AppCompatActivity() {
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P)
                 add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }.toTypedArray()
+
+        // Amount of time (in milliseconds) to wait for detected text to settle
+        private const val SMOOTHING_DURATION = 50L
     }
 }
