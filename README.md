@@ -1,1 +1,2 @@
-Project is under progress on my local machine. Will push soon.
+This project is aimed at reading text from images (currently done).
+
